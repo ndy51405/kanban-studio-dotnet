@@ -1,6 +1,6 @@
 using KanbanStudio.Api.Data;
-using KanbanStudio.Api.Models;
 using KanbanStudio.Api.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +8,12 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services
 builder.Services.AddHttpClient<IAIChatService, GeminiChatService>();
 builder.Services.AddSingleton<DatabaseService>();
+
+builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.SuppressModelStateInvalidFilter = true;
+});
 
 // Configure CORS for development
 builder.Services.AddCors(options =>
@@ -28,68 +34,7 @@ db.InitDb();
 
 app.UseCors();
 
-// API Endpoints
-app.MapGet("/api/health", () =>
-{
-    return Results.Ok(new { status = "ok", message = "Hello from ASP.NET Core" });
-});
-
-app.MapPost("/api/auth/login", (LoginRequest payload, DatabaseService db) =>
-{
-    if (string.IsNullOrWhiteSpace(payload.Username) || !db.AuthenticateUser(payload.Username, payload.Password))
-    {
-        return Results.Json(new { detail = "Invalid username or password" }, statusCode: 401);
-    }
-    return Results.Ok(new LoginResponse { Username = payload.Username, Status = "ok" });
-});
-
-app.MapGet("/api/kanban", (DatabaseService db) =>
-{
-    var data = db.GetBoardData("user");
-    if (data == null)
-    {
-        return Results.Json(new { detail = "Board not found" }, statusCode: 404);
-    }
-    return Results.Ok(data);
-});
-
-app.MapPut("/api/kanban", (BoardData? payload, DatabaseService db) =>
-{
-    if (payload == null || payload.Columns == null || payload.Cards == null)
-    {
-        return Results.Json(new { detail = "Invalid board payload" }, statusCode: 422);
-    }
-
-    var success = db.UpdateBoardData("user", payload);
-    if (!success)
-    {
-        return Results.Json(new { detail = "Board or user not found" }, statusCode: 404);
-    }
-    return Results.Ok(payload);
-});
-
-app.MapPost("/api/chat", async (AIChatRequest payload, DatabaseService db, IAIChatService chatService, CancellationToken ct) =>
-{
-    var board = db.GetBoardData("user");
-    if (board == null)
-    {
-        return Results.Json(new { detail = "Board not found" }, statusCode: 404);
-    }
-
-    try
-    {
-        var response = await chatService.ChatAsync(payload.Message, payload.History, board, ct);
-        if (response.Board != null)
-        {
-            db.UpdateBoardData("user", response.Board);
-        }
-        return Results.Ok(response);
-    }
-    catch (Exception ex)
-    {
-        return Results.Json(new { detail = $"AI service error: {ex.Message}" }, statusCode: 500);
-    }
-});
+app.MapControllers();
 
 // Serve frontend static files
 var staticDir = ResolveStaticDirectory();
