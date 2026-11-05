@@ -1,0 +1,19 @@
+services:
+  kanban-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kanban-studio-dotnet-app
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - ASPNETCORE_URLS=http://+:8000
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DATABASE_PATH=/app/data/pm.db
+      - STATIC_DIR=/app/frontend/dist
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
