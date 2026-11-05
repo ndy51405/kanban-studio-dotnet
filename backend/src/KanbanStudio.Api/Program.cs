@@ -2,12 +2,21 @@ using KanbanStudio.Api.Data;
 using KanbanStudio.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.FileProviders;
+using Serilog;
+using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .WriteTo.Console(new RenderedCompactJsonFormatter()));
 
 // Add services
 builder.Services.AddHttpClient<IAIChatService, GeminiChatService>();
 builder.Services.AddSingleton<DatabaseService>();
+builder.Services.AddSingleton<IBoardAuditLogger, BoardAuditLogger>();
 
 builder.Services.AddControllers();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
