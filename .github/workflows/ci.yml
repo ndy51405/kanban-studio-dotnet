@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# 當同一個 PR 有新的 commit push 時，自動取消前一次未跑完的測試以節省 CI 資源
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-test:
+    name: Backend Test & Build (.NET 10)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore backend/KanbanStudio.slnx
+
+      - name: Build solution
+        run: dotnet build backend/KanbanStudio.slnx --no-restore --configuration Release
+
+      - name: Run unit tests
+        run: dotnet test backend/KanbanStudio.slnx --no-build --configuration Release --verbosity normal
+
+  frontend-test:
+    name: Frontend Test & Build (React & Vite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run frontend unit tests
+        run: npm test
+
+      - name: Typecheck and build frontend
+        run: npm run build
